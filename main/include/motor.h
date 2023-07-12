@@ -32,4 +32,3 @@ private:
     std::vector<mcpwm_controller::Motor> _motor;
     std::bitset<3> _flags;
 };
-

@@ -1,11 +1,15 @@
-#include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-
-#include "wifi_controller.hpp"
+#include "main.h"
 
 extern "C" void app_main() 
 {
-    wifi::station station("ssid", "n&79008M");
-    station.wifi_init();
+    wifi::Station& station = wifi::Station::instance("Redmi 9C", "123456789");
+    station.init();
+    station.connect_to_tcp("192.168.43.87", 1234);
+
+    while (true)
+    {
+        station.receive_data();
+        station.print_buffer();
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
 };

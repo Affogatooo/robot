@@ -35,6 +35,6 @@ namespace mcpwm_controller {
         u_int64_t _PIN;
         int _speed = 0;
         pwm_config _pwm;
-        int MAX_SPEED = 100;
+        int _MAX_SPEED = 100;
     };
 } // mcpwm_controller

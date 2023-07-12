@@ -59,7 +59,7 @@ namespace mcpwm_controller
 
     void Motor::setMaxSpeed(int MAX_SPEED)
     {
-        this->MAX_SPEED = MAX_SPEED;
+        _MAX_SPEED = MAX_SPEED;
     };
 
     void Motor::stop()
@@ -74,7 +74,7 @@ namespace mcpwm_controller
 
     void Motor::start(int speed)
     {
-        this->_speed = speed;
+        _speed = speed;
         ESP_ERROR_CHECK(mcpwm_comparator_set_compare_value(_pwm.comparator, calculateSpeed(_speed)));
     };
 
@@ -82,9 +82,9 @@ namespace mcpwm_controller
     {
         // Para cualquier número mayor a 100, se considera 100
         if (speed < 100) {
-            return (speed * this->MAX_SPEED);
+            return (speed * _MAX_SPEED);
         } else{
-            return (100 * this->MAX_SPEED);
+            return (100 * _MAX_SPEED);
         }
     };
 } // mcpwm_controller
