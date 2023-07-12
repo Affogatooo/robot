@@ -135,9 +135,7 @@ namespace wifi {
     void Station::receive_data()
     { 
         int received_bytes = recv(_socket_id, _buffer, sizeof(_buffer) - 1, 0);
-        if (received_bytes == 0) {
-            // Conexión cerrada
-            ESP_LOGW("TCP", "Server connection closed");
+        if (received_bytes <= 0) {
             return;
         }
 

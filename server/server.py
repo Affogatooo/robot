@@ -1,35 +1,65 @@
 import socket
-import threading
+from flask import Flask, render_template, request
 
 # Configuración del servidor
-TCP_HOST = 'localhost'  # Dirección IP del servidor
-TCP_PORT = 1234      # Puerto del servidor
+TCP_IP = socket.gethostbyname(socket.gethostname())   # Dirección IP del servidor
+TCP_PORT = 1234                                         # Puerto del servidor
 
-def start_server():
-    # Crear un socket TCP/IP
-    server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.bind((TCP_HOST, TCP_PORT))
-    server_socket.listen(1)
+# Creamos un socket TCP
+server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    print('Servidor TCP escuchando en {}:{}'.format(TCP_HOST, TCP_PORT))
+# Enlazamos el socket al puerto y dirección IP
+server_socket.bind((TCP_IP, TCP_PORT))
+
+# Ponemos el socket en modo de escucha
+server_socket.listen(1)
+
+print(f"Servidor escuchando en {TCP_IP}:{TCP_PORT}")
+
+app = Flask(__name__)
+
+# Ruta principal para mostrar la página web
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+# Ruta para recibir el mensaje enviado desde la página web
+@app.route('/enviar', methods=['POST'])
+def enviar():
+    # Recibimos los datos enviados desde la página web
+    message = request.form['message']
+
+    # Enviamos el mensaje al cliente (ESP32)
+    conn.sendall(message.encode('utf-8'))
+
+    return 'Mensaje enviado: ' + message
+
+# Ruta para mostrar los mensajes recibidos
+@app.route('/mensajes')
+def mensajes():
+    mensajes_recibidos = []
 
     while True:
-        # Esperar una nueva conexión
-        client_socket, address = server_socket.accept()
-        print('Cliente {} conectado'.format(address))
+        # Recibimos los datos enviados por el cliente (ESP32)
+        data = conn.recv(1024).decode('utf-8')
 
-        # Recibir datos del cliente
-        data = client_socket.recv(1024).decode()
-        print('Cient: {}'.format(data))
+        if not data:
+            # Si no se reciben datos, el cliente ha cerrado la conexión
+            break
 
-        while True:
-            user_input = input('> ')
+        mensajes_recibidos.append(data)
 
-            if user_input.lower() == 'exit':
-                break
+    return render_template('mensajes.html', mensajes=mensajes_recibidos)
 
-            client_socket.send(user_input.encode())
+# Cerramos la conexión y el socket del servidor al finalizar
+@app.teardown_appcontext
+def close_socket(exception=None):
+    server_socket.close()
 
-        client_socket.close()
+if __name__ == '__main__':
+    # Esperamos a que llegue una conexión
+    conn, addr = server_socket.accept()
+    print(f"Conexión establecida desde: {addr}")
 
-start_server()
+    # Ejecutamos la aplicación Flask
+    app.run()
