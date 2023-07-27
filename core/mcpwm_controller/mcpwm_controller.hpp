@@ -1,7 +1,6 @@
 #pragma once
 #include "driver/mcpwm_prelude.h"
 
-// Ignorar warnings de inicialización de structs
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers" 
 
 namespace mcpwm_controller {
@@ -26,13 +25,13 @@ namespace mcpwm_controller {
         void setMaxSpeed(int MAX_SPEED);
         void stop();
         void start();
-        void start(int speed); // Overload
+        void start(int speed);
 
     private:
         int calculateSpeed(int speed);
         
         // TODO: Implementar dirección
-        u_int64_t _PIN;
+        u_int64_t _pin;
         int _speed = 0;
         pwm_config _pwm;
         int _MAX_SPEED = 100;

@@ -1,0 +1,45 @@
+.tank-container {
+  display: flex;
+  flex-direction: column; 
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+}
+
+.tank {
+  position: relative;
+  width: 120px;
+  height: 80px;
+  background-color: #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 8px 8px 16px #bebebe, -8px -8px 16px #ffffff;
+}
+
+.wheel {
+  position: absolute;
+  top: 15%;
+  width: 30px;
+  height: 60px;
+  background-color: #e0e0e0;
+  border-radius: 10px;
+  box-shadow: 4px 4px 8px hsl(0, 0%, 75%), -4px -4px 8px #ffffff;
+  transform: translateY(-50%);
+}
+
+.left-wheel {
+  left: 10px;
+}
+
+.right-wheel {
+  right: 10px;
+}
+
+.wheel-speed {
+  position: absolute;
+  bottom: -25px;
+  width: 100%;
+  text-align: center;
+  font-size: 16px;
+  font-weight: bold;
+  color: #757575;
+}
