@@ -13,9 +13,9 @@
 #include "esp_netif.h"
 #include "nvs_flash.h"
 
-#define TAG                 "WIFI_STATION"
-#define CONNECTED           true
-#define DISCONNECTED        false
+#define TAGW "WIFI_STATION"
+#define CONNECTED true
+#define DISCONNECTED false
 
 constexpr int MAX_RETRY             = 100;
 constexpr int MAX_BUFFER_SIZE       = 1024;
@@ -36,6 +36,9 @@ namespace wifi {
         void init();
         void connect_to_tcp(std::string TCP_SERVER_IP, int TCP_SERVER_PORT);
         void send_data(std::string data);
+
+        int speed_m;
+        int turnrate_m;
 
     private:
         Station(const char* AP_SSID, const char* AP_PASSWORD)

@@ -15,14 +15,14 @@ namespace wifi {
             if (_station_retry_num < MAX_RETRY) {
                 esp_wifi_connect();
                 _station_retry_num++;
-                ESP_LOGI(TAG, "Reintentando conexion al ACCESS POINT");
+                ESP_LOGI(TAGW, "Reintentando conexion al ACCESS POINT");
             } else {
                 xEventGroupSetBits(_station_wifi_event_group, WIFI_FAIL_BIT);
             }
-            ESP_LOGI(TAG,"Fallo la conexion al ACCESS POINT");
+            ESP_LOGI(TAGW,"Fallo la conexion al ACCESS POINT");
         } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
             ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
-            ESP_LOGI(TAG, "Se consiguio una IP:" IPSTR, IP2STR(&event->ip_info.ip));
+            ESP_LOGI(TAGW, "Se consiguio una IP:" IPSTR, IP2STR(&event->ip_info.ip));
             _station_retry_num = 0;
             xEventGroupSetBits(_station_wifi_event_group, WIFI_CONNECTED_BIT);
         }
@@ -73,15 +73,15 @@ namespace wifi {
                 portMAX_DELAY);
 
         if (bits & WIFI_CONNECTED_BIT) {
-            ESP_LOGI(TAG, "Conectado al ACCESS POINT SSID:%s password:%s",
+            ESP_LOGI(TAGW, "Conectado al ACCESS POINT SSID:%s password:%s",
                     _AP_SSID.c_str(), _AP_PASSWORD.c_str());
             _AP_CONNECTED = true;
         } else if (bits & WIFI_FAIL_BIT) {
-            ESP_LOGI(TAG, "Fallo la conexión al ACCESS POINT SSID:%s, password:%s",
+            ESP_LOGI(TAGW, "Fallo la conexión al ACCESS POINT SSID:%s, password:%s",
                     _AP_SSID.c_str(), _AP_PASSWORD.c_str());
             return;
         } else {
-            ESP_LOGE(TAG, "UNEXPECTED EVENT");
+            ESP_LOGE(TAGW, "UNEXPECTED EVENT");
             return;
         }
 
@@ -160,13 +160,23 @@ namespace wifi {
                 continue;
             }
 
+            int received_speed = 0;
+            int received_turnRate = 0;
             while (_is_tcp_connected == CONNECTED) {
                 int received_bytes = recv(_socket_id, _buffer, sizeof(_buffer) - 1, 0);
                 if (received_bytes <= 0) {
                     _is_tcp_connected = DISCONNECTED;
                 } else {
                     _buffer[received_bytes] = '\0';
-                    ESP_LOGI("TCP", "Server: %s", _buffer);                    
+                    ESP_LOGI("TCP", "Server: %s", _buffer);
+
+                    int parse_count = sscanf(_buffer, "%d %d", &received_speed, &received_turnRate);
+                    if (parse_count == 2) {
+                        // Now you have the values in received_speed and received_turnRate variables
+                        ESP_LOGI("TCP", "Received Speed: %d, Turn Rate: %d", received_speed, received_turnRate);
+                    } else {
+                        ESP_LOGE("TCP", "Failed to parse received data.");
+                    }                  
                 }
             }
 

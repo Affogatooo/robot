@@ -1,34 +1,24 @@
 #pragma once
 
 #include <vector>
-#include <bitset>
 #include <map>
 #include <functional>
 
 #include "mcpwm_controller.hpp"
+#include "wifi_controller.hpp"
 
 class drive
 {
 public:
-    drive();
-    ~drive();
-    /* void forward();
-    void backward(); // TODO: implementar el H bridge
-    void left();
-    void right();
-    void stop();
-    */
-    void listen();
+    void listen(wifi::Station &station);
 
     // TODO: Benchmark esta función
-    void attachMotors(int MOTOR_PIN_1, int MOTOR_PIN_2);
+    void attachMotors(mcpwm_controller::Motor leftMotor, mcpwm_controller::Motor rightMotor);
 private:
-    void forward();
-    void backward(); // TODO: implementar el H bridge
-    void left();
-    void right();
+    void start(int speed, int turnrate);
     void stop();
 
     std::vector<mcpwm_controller::Motor> _motor;
-    std::bitset<3> _flags;
+    int speed;
+    int turnrate;
 };

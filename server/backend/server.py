@@ -20,7 +20,8 @@ def handle_client(client_socket):
             for client in connected_clients:
                 if client != client_socket:
                     try:
-                        client.sendall(data)
+                        data_str = f"{speed} {turnRate}\n"
+                        client.sendall(data_str.encode())
                     except:
                         client.close()
                         connected_clients.remove(client)
@@ -28,7 +29,7 @@ def handle_client(client_socket):
             break
 
 def main():
-    host = '127.0.0.1'  # localhost
+    host = '192.168.1.67'  # localhost
     port = 12345        # choose any available port
 
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

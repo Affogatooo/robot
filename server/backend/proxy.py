@@ -5,7 +5,7 @@ import json
 import struct
 
 PROXY_PORT = 8080
-TCP_HOST = 'localhost'  # Replace with the actual TCP server IP or hostname
+TCP_HOST = '192.168.1.67'  # Replace with the actual TCP server IP or hostname
 TCP_PORT = 12345  # Replace with the actual TCP server port
 
 async def handle_proxy_client(websocket, path):

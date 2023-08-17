@@ -37,7 +37,7 @@ set PROXY_SERVER_PATH="D:\robot\server\backend\proxy.py"
 set FRONTEND_PATH="D:\robot\server\frontend\"
 
 REM Launch Windows Terminal with split panes
-wt -d %~dp0 -p "Server" python %SERVER_PATH% ; split-pane -p "Client" -H python %CLIENT_PATH% ; split-pane -p "Proxy" python %PROXY_SERVER_PATH%
+wt -d %~dp0 -p "Server" python %SERVER_PATH% ; split-pane -p "Proxy" python %PROXY_SERVER_PATH%
 
 timeout /t 3
 wt -d %~dp0 -p "Frontend" cmd /k  npm start --prefix %FRONTEND_PATH%
