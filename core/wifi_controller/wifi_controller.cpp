@@ -2,8 +2,9 @@
 
 namespace wifi {
     // Inicializa las variables estáticas
-    EventGroupHandle_t Station::station_wifi_event_group = xEventGroupCreate();
-    int Station::station_retry_num = 0;
+    EventGroupHandle_t Station::_station_wifi_event_group = xEventGroupCreate();
+    int Station::_station_retry_num = 0;
+    int Station::_tcp_retry_num = 0;
 
     void Station::event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data)
@@ -11,19 +12,19 @@ namespace wifi {
         if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
             esp_wifi_connect();
         } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
-            if (station_retry_num < MAX_RETRY) {
+            if (_station_retry_num < MAX_RETRY) {
                 esp_wifi_connect();
-                station_retry_num++;
+                _station_retry_num++;
                 ESP_LOGI(TAG, "Reintentando conexion al ACCESS POINT");
             } else {
-                xEventGroupSetBits(station_wifi_event_group, WIFI_FAIL_BIT);
+                xEventGroupSetBits(_station_wifi_event_group, WIFI_FAIL_BIT);
             }
             ESP_LOGI(TAG,"Fallo la conexion al ACCESS POINT");
         } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
             ip_event_got_ip_t* event = (ip_event_got_ip_t*) event_data;
             ESP_LOGI(TAG, "Se consiguio una IP:" IPSTR, IP2STR(&event->ip_info.ip));
-            station_retry_num = 0;
-            xEventGroupSetBits(station_wifi_event_group, WIFI_CONNECTED_BIT);
+            _station_retry_num = 0;
+            xEventGroupSetBits(_station_wifi_event_group, WIFI_CONNECTED_BIT);
         }
     };
 
@@ -65,7 +66,7 @@ namespace wifi {
         ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config) );
         ESP_ERROR_CHECK(esp_wifi_start());
 
-        EventBits_t bits = xEventGroupWaitBits(station_wifi_event_group,
+        EventBits_t bits = xEventGroupWaitBits(_station_wifi_event_group,
                 WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
                 pdFALSE,
                 pdFALSE,
@@ -74,53 +75,110 @@ namespace wifi {
         if (bits & WIFI_CONNECTED_BIT) {
             ESP_LOGI(TAG, "Conectado al ACCESS POINT SSID:%s password:%s",
                     _AP_SSID.c_str(), _AP_PASSWORD.c_str());
+            _AP_CONNECTED = true;
         } else if (bits & WIFI_FAIL_BIT) {
             ESP_LOGI(TAG, "Fallo la conexión al ACCESS POINT SSID:%s, password:%s",
                     _AP_SSID.c_str(), _AP_PASSWORD.c_str());
+            return;
         } else {
             ESP_LOGE(TAG, "UNEXPECTED EVENT");
+            return;
         }
 
-        vEventGroupDelete(station_wifi_event_group);
+        vEventGroupDelete(_station_wifi_event_group);
     };
 
     void Station::connect_to_tcp(std::string TCP_SERVER_IP, int TCP_SERVER_PORT)
-    {        
-        _socket_id = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
-        // Crea el socket
-        if (_socket_id < 0) {
-            ESP_LOGE("TCP", "Fallo la creacion del socket. Error code: %d", errno);
-            return;
-        }
+    {   
+        _tcp_server_ip = TCP_SERVER_IP;
+        _tcp_server_port = TCP_SERVER_PORT;
 
-        // Configura la dirección del servidor
-        struct sockaddr_in server_addr;
-        memset(&server_addr, 0, sizeof(server_addr));
-        server_addr.sin_family = AF_INET;
-        server_addr.sin_port = htons(TCP_SERVER_PORT);
-        if (inet_pton(AF_INET, TCP_SERVER_IP.c_str(), &server_addr.sin_addr) <= 0) {
-            ESP_LOGE("TCP", "Direccion del servidor inválida. Error code: %d", errno);
+        xTaskCreate(
+            [](void* param) {
+                Station* self = static_cast<Station*>(param);
+                self->tcp_connection_task();
+            },
+            "TCP Connection Task",
+            4096,
+            this,
+            5,
+            NULL
+        );
+    };
+
+    void Station::tcp_connection_task()
+    {
+        int delay_seconds = 1;
+        int retry_num = 0;
+        constexpr int max_delay_seconds = 60;
+
+        while (true) {
+            retry_num++;
+            if (!_AP_CONNECTED || retry_num == MAX_RETRY) {
+                break;
+            }
+
+            _socket_id = socket(AF_INET, SOCK_STREAM, IPPROTO_IP);
+            if (_socket_id < 0) {
+                ESP_LOGE("TCP", "Fallo la creacion del socket. Error code: %d", errno);
+                vTaskDelay(delay_seconds * 1000 / portTICK_PERIOD_MS);
+                delay_seconds = std::min(delay_seconds * 2, max_delay_seconds);
+                continue;
+            }
+
+            struct sockaddr_in server_addr;
+            memset(&server_addr, 0, sizeof(server_addr));
+            server_addr.sin_family = AF_INET;
+            server_addr.sin_port = htons(_tcp_server_port);
+            if (inet_pton(AF_INET, _tcp_server_ip.c_str(), &server_addr.sin_addr) <= 0) {
+                ESP_LOGE("TCP", "Direccion del servidor invalida. Error code: %d", errno);
+                close(_socket_id);
+                vTaskDelay(delay_seconds * 1000 / portTICK_PERIOD_MS);
+                delay_seconds = std::min(delay_seconds * 2, max_delay_seconds);
+                continue;
+            }
+
+            if (connect(_socket_id, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
+                ESP_LOGE("TCP", "Fallo la conexion al servidor. Error code: %d", errno);
+                close(_socket_id);
+                vTaskDelay(delay_seconds * 1000 / portTICK_PERIOD_MS);
+                delay_seconds = std::min(delay_seconds * 2, max_delay_seconds);
+                continue;
+            }
+
+            delay_seconds = 1; // Reset delay to initial value
+
+            ESP_LOGI("TCP", "Conectado al servidor TCP");
+            _is_tcp_connected = CONNECTED;
+
+            const char *message = "ESP32 Conectado!";
+            if (send(_socket_id, message, strlen(message), 0) < 0) {
+                ESP_LOGE("TCP", "No se pudo enviar el mensaje al servidor. Error code: %d", errno);
+                close(_socket_id);
+                vTaskDelay(delay_seconds * 1000 / portTICK_PERIOD_MS);
+                delay_seconds = std::min(delay_seconds * 2, max_delay_seconds);
+                continue;
+            }
+
+            while (_is_tcp_connected == CONNECTED) {
+                int received_bytes = recv(_socket_id, _buffer, sizeof(_buffer) - 1, 0);
+                if (received_bytes <= 0) {
+                    _is_tcp_connected = DISCONNECTED;
+                } else {
+                    _buffer[received_bytes] = '\0';
+                    ESP_LOGI("TCP", "Server: %s", _buffer);                    
+                }
+            }
+
             close(_socket_id);
-            return;
+            ESP_LOGW("TCP", "Desconectado, reintentando");
+            vTaskDelay(delay_seconds * 1000 / portTICK_PERIOD_MS);
+            delay_seconds = std::min(delay_seconds * 2, max_delay_seconds);
         }
 
-        // Conecta al socket
-        if (connect(_socket_id, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
-            ESP_LOGE("TCP", "Fallo la conexion al servidor. Error code: %d", errno);
-            close(_socket_id);
-            return;
-        }
-
-        // Conexión exitosa
-        ESP_LOGI("TCP", "Conectado al servidor TCP");
-
-        // Esuchar al servidor
-        const char *message = "Hola desde el ESP32!";
-        if (send(_socket_id, message, strlen(message), 0) < 0) {
-            ESP_LOGE("TCP", "No se pudo enviar el mensaje al servidor. Error code: %d", errno);
-            close(_socket_id);
-            return;
-        }
+        close(_socket_id);
+        ESP_LOGI("TCP", "Fallaron todos los intentos de conexion, saliendo de la tarea");
+        vTaskDelete(NULL);
     };
 
     void Station::send_data(std::string data)
@@ -130,24 +188,5 @@ namespace wifi {
             close(_socket_id);
             return;
         }
-    };
-
-    void Station::receive_data()
-    { 
-        int received_bytes = recv(_socket_id, _buffer, sizeof(_buffer) - 1, 0);
-        if (received_bytes == 0) {
-            // Conexión cerrada
-            ESP_LOGW("TCP", "Server connection closed");
-            return;
-        }
-
-        _buffer[received_bytes] = '\0';
-
-        ESP_LOGI("TCP", "Server: %s", _buffer);
-    };
-
-    void Station::print_buffer()
-    {
-        ESP_LOGW("BUFFER", "DATA WRITTEN INTO THE BUFFER: %s", _buffer);
     };
 } // wifi

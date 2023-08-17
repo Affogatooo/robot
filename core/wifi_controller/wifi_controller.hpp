@@ -1,6 +1,5 @@
 #pragma once
 
-// Ignorar warnings de inicialización de structs
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 
 #include <string>
@@ -14,23 +13,20 @@
 #include "esp_netif.h"
 #include "nvs_flash.h"
 
-#define TAG "WIFI_STATION"
-#define MAX_RETRY 3
+#define TAG                 "WIFI_STATION"
+#define CONNECTED           true
+#define DISCONNECTED        false
 
-#define MAX_BUFFER_SIZE 1024
-
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT      BIT1
+constexpr int MAX_RETRY             = 100;
+constexpr int MAX_BUFFER_SIZE       = 1024;
+constexpr int WIFI_CONNECTED_BIT    = BIT0;
+constexpr int WIFI_FAIL_BIT         = BIT1;
 
 namespace wifi {
     class Station
     {
     public:
-        /** 
-         * @brief Singleton para la clase Station
-         * @param AP_SSID nombre de la red a la que se conectará
-         * @param AP_PASSWORD contraseña de la red
-        **/
+        // Hace que solo se puede crear una instancia de la clase Station
         static Station& instance(const char* AP_SSID, const char* AP_PASSWORD)
         {
             static Station _instance(AP_SSID, AP_PASSWORD);
@@ -40,8 +36,6 @@ namespace wifi {
         void init();
         void connect_to_tcp(std::string TCP_SERVER_IP, int TCP_SERVER_PORT);
         void send_data(std::string data);
-        void receive_data();
-        void print_buffer();   
 
     private:
         Station(const char* AP_SSID, const char* AP_PASSWORD)
@@ -63,16 +57,23 @@ namespace wifi {
             ESP_ERROR_CHECK(esp_wifi_deinit());
         };
 
-        static EventGroupHandle_t station_wifi_event_group;
-        static int station_retry_num;
         static void event_handler(void* arg, esp_event_base_t event_base,
                                 int32_t event_id, void* event_data);
+        static EventGroupHandle_t _station_wifi_event_group;
+
+        static int _station_retry_num;
+        static int _tcp_retry_num;
 
         std::string _AP_SSID;
         std::string _AP_PASSWORD;
+        bool _AP_CONNECTED;
 
+        void tcp_connection_task();
+        std::string _tcp_server_ip;
+        int _tcp_server_port;
         int _socket_id;
         char _buffer[MAX_BUFFER_SIZE];
+        bool _is_tcp_connected;
 
         Station(const Station&) = delete;               // Deshabilita el constructor por copia
         Station& operator=(const Station&) = delete;    // Deshabilita el operador de asignación

@@ -3,14 +3,14 @@
 namespace mcpwm_controller
 {
     Motor::Motor(u_int64_t pin, int speed)
-        : _PIN{pin}, _speed{speed} 
+        : _pin{pin}, _speed{speed} 
     {
         _pwm.timer_config = {
             0,
             MCPWM_TIMER_CLK_SRC_DEFAULT,
             10'000'000,
             MCPWM_TIMER_COUNT_MODE_UP,
-            10'975, // random number tbh, works with speed*100
+            10'975, // número todo random, pero por alguna razón funciona
         };
         ESP_ERROR_CHECK(mcpwm_new_timer(&_pwm.timer_config, &_pwm.timer));
 
@@ -26,7 +26,7 @@ namespace mcpwm_controller
         ESP_ERROR_CHECK(mcpwm_new_comparator(_pwm.oper, &_pwm.comparator_config, &_pwm.comparator));
 
         _pwm.generator_config = {
-            static_cast<int>(_PIN), // ¿Por qué le hago casting a esto?
+            static_cast<int>(_pin), // ¿Por qué le hago casting a esto?
             {0},               // No tengo idea, me dio flojera cambiar el tipo
         };
         ESP_ERROR_CHECK(mcpwm_new_generator(_pwm.oper, &_pwm.generator_config, &_pwm.generator));
@@ -50,7 +50,6 @@ namespace mcpwm_controller
 
     Motor::~Motor()
     {
-        // Destruye los objetos del PWM, no creo que sea necesario
         mcpwm_del_generator(_pwm.generator);
         mcpwm_del_comparator(_pwm.comparator);
         mcpwm_del_operator(_pwm.oper);
@@ -80,7 +79,6 @@ namespace mcpwm_controller
 
     int Motor::calculateSpeed(int speed)
     {
-        // Para cualquier número mayor a 100, se considera 100
         if (speed < 100) {
             return (speed * _MAX_SPEED);
         } else{
